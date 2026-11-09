@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slavemaker Swarm</title>
+<meta name="description" content="Live 3-D swarm simulation of Polyergus slavemaker ants raiding Formica colonies: scouting, raid columns, pupa theft, enslavement, usurpation, pheromones and host-parasite coevolution.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="gl" aria-label="Simulation view"></canvas>
+  <div class="labels" id="labels"></div>
+  <div class="tip" id="tip" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="err" id="err" hidden></div>
+
+  <div class="hud hud-tl">
+    <div class="brand">Slavemaker Swarm</div>
+    <div class="clock"><span id="clockIcon">☀</span> <b id="clockDay">Day 1</b> <span id="clockTime">06:00</span> <span id="raidHint" class="raid-hint"></span></div>
+    <div class="row">
+      <button id="play" class="primary">Pause</button>
+      <button id="step" title="Advance one tick">Step</button>
+      <select id="speed" aria-label="Speed">
+        <option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option>
+        <option value="8">8×</option><option value="16">16×</option><option value="turbo">Turbo</option>
+      </select>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <div class="hud hud-ant" id="antCard" hidden></div>
+  <div hidden><button id="antStop"></button><button id="antView"></button><button id="antNext"></button></div>
+
+  <div class="hud hud-bl">
+    <div class="row cams">
+      <span class="lbl">Camera</span>
+      <button id="camOrbit" class="on" title="Orbit camera (Esc)">Orbit</button>
+      <button id="camFly" title="Free-fly camera (F2)">Free fly</button>
+      <span class="sep"></span>
+      <button id="camOverview" title="Whole meadow">Overview</button>
+      <button id="camSlaver" title="Fly to a slavemaker nest (repeat to cycle)">Slavemaker nest</button>
+      <button id="camRaid" title="Track the current raid column">Follow raid</button>
+    </div>
+    <div class="row cams">
+      <span class="lbl">Ride an ant</span>
+      <select id="rideRole" aria-label="Which ant to ride">
+        <option value="raider">Polyergus raider</option>
+        <option value="slave">Enslaved Formica</option>
+        <option value="scout">Polyergus scout</option>
+        <option value="host">Free Formica</option>
+        <option value="lasius">Lasius</option>
+        <option value="queen">Flying queen</option>
+        <option value="any">Any ant</option>
+      </select>
+      <button id="rideBtn" title="Chase-cam on an ant of this kind (or click any ant when zoomed in)">Ride</button>
+    </div>
+    <div class="row toggles">
+      <label><input type="checkbox" id="tRoles"> Role colours</label>
+      <label><input type="checkbox" id="tTags" checked> Slave tags</label>
+      <label><input type="checkbox" id="tRings" checked> Colony rings</label>
+      <label><input type="checkbox" id="tLabels" checked> Labels</label>
+    </div>
+    <div class="row toggles" id="phToggles"></div>
+    <div class="legend" id="legend"></div>
+    <div class="help" id="help">Orbit: drag pan · right-drag / Shift-drag rotate · wheel zoom · W A S D · Q E rotate · R F tilt · click a nest or an ant · F2 free fly</div>
+  </div>
+
+  <button class="panel-toggle" id="panelToggle" title="Show / hide panel">☰</button>
+  <aside class="side" id="side">
+    <section class="card">
+      <h2>Enslavement</h2>
+      <div class="stats" id="slaveStats"></div>
+    </section>
+    <section class="card">
+      <h2>Population</h2>
+      <div class="stats" id="stats"></div>
+      <div class="legend-row" id="popLegend"></div>
+      <canvas class="chart" id="popChart"></canvas>
+    </section>
+    <section class="card" id="inspectCard">
+      <h2>Colony inspector</h2>
+      <div id="inspect" class="inspect"><p class="muted">Click a nest in the meadow.</p></div>
+    </section>
+    <section class="card">
+      <h2>Evolving traits <small>colony mean · band = min–max</small></h2>
+      <div class="traits" id="traits"></div>
+    </section>
+    <section class="card">
+      <h2>Event log</h2>
+      <ol class="log" id="log"></ol>
+    </section>
+    <section class="card">
+      <h2>World</h2>
+      <div class="ctl"><label for="hosts">Formica colonies</label><input type="range" id="hosts" min="4" max="24" value="14"><output id="hostsV">14</output></div>
+      <div class="ctl"><label for="lasius">Lasius colonies</label><input type="range" id="lasius" min="0" max="6" value="3"><output id="lasiusV">3</output></div>
+      <div class="ctl"><label for="seed">Seed</label><input type="number" id="seed" value="2" min="1" max="999999"></div>
+      <div class="row"><button id="reset">Reset world</button><button id="queen" title="A mated Polyergus queen flies in and tries to usurp a Formica colony">Release Polyergus queen</button></div>
+      <h3>Live settings</h3>
+      <div class="ctl"><label for="food">Food supply</label><input type="range" id="food" min="0.3" max="2.5" step="0.1" value="1"><output id="foodV">1.0×</output></div>
+      <div class="ctl"><label for="mut">Mutation σ</label><input type="range" id="mut" min="0" max="0.2" step="0.01" value="0.06"><output id="mutV">0.06</output></div>
+      <label class="chk"><input type="checkbox" id="rebel" checked> Slave rebellion (slaves kill slavemaker pupae)</label>
+      <label class="chk"><input type="checkbox" id="reseed" checked> Immigrant queens if a species dies out</label>
+    </section>
+  </aside>
+</div>
+
+<script src="src/core.js"></script>
+<script src="src/world.js"></script>
+<script src="src/colony.js"></script>
+<script src="src/sim.js"></script>
+<script src="src/render3d.js"></script>
+<script src="src/charts.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

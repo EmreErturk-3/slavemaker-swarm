@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>headless run</title>
+<!-- Runs the sim without rendering and POSTs a summary to tools/server.py.
+     Query params: ?ticks=30000&seed=1&every=2000 -->
+<script src="../src/core.js"></script>
+<script src="../src/world.js"></script>
+<script src="../src/colony.js"></script>
+<script src="../src/sim.js"></script>
+<pre id="out"></pre>
+<script>
+  const q = new URLSearchParams(location.search);
+  const ticks = +(q.get('ticks') || 30000), every = +(q.get('every') || 2000);
+  const lines = [];
+  let err = null;
+  const t0 = performance.now();
+  try {
+    if (q.get('food')) SM.CFG.foodRate = +q.get('food');
+    const sim = new SM.Sim({ seed: +(q.get('seed') || 1) });
+    const f = (v) => (v === v ? v.toFixed(2) : '  - ');
+    for (let t = 1; t <= ticks; t++) {
+      sim.step();
+      if (t % every === 0) {
+        const h = sim.history[sim.history.length - 1];
+        let sl = 0, P = 0, out = 0;
+        const raidActive = sim.colonies.filter(c => c && c.alive && c.sp === 1).map(c => `${c.nP}P/${c.nSlaves}s/f${c.food.toFixed(0)}/b${c.brood.length} raid=${c.raidActive}/${c.raidLeft}/${c.raidersOut} sc=${c.scoutsOut} in=${c.nPIn} cd=${c.cooldownUntil} pS=${c.pScout.toFixed(5)} hist=${(() => { const h = {}; for (let i = 0; i < sim.hi; i++) if (sim.alive[i] && sim.col[i] === c.idx && sim.sp[i] === 1 && sim.st[i] !== 0) { const k = sim.st[i] + (sim.st[i] === 8 ? '<' + sim.prev[i] : '') + ':c' + sim.carry[i] + ':d' + Math.round(Math.hypot(sim.x[i] - c.x, sim.y[i] - c.y) / 10); h[k] = (h[k] || 0) + 1; } return JSON.stringify(h); })()}`).join(' ');
+        lines.push(`t=${t} ants=${sim.count} col F${h.cF} P${h.cP} L${h.cL} | free=${h.free} slaves=${h.slaves} poly=${h.poly} las=${h.las} food=${sim.world.totalFood.toFixed(0)} | raids=${sim.stats.raids} stolen=${sim.stats.pupaeStolen} rebelK=${sim.stats.rebelKills} usurp=${sim.stats.usurpations}/${sim.stats.usurpFail} founded=${sim.stats.founded} maxgen=${Math.max(...sim.colonies.filter(c=>c&&c.alive).map(c=>c.g.gen))} extinct=${sim.stats.extinct} kills=${JSON.stringify(sim.stats.kmat)}` +
+          `\n   F aggr=${f(h.F.aggr.mean)} flee=${f(h.F.flee.mean)} rebel=${f(h.F.rebel.mean)} repro=${f(h.F.repro.mean)} | P appease=${f(h.P.appease.mean)} scout=${f(h.P.scout.mean)} range=${f(h.P.range.mean)} recruit=${f(h.P.recruit.mean)} want=${f(h.P.want.mean)} | ${raidActive}` +
+          `\n   F colonies: ` + sim.colonies.filter(c => c && c.alive && c.sp === 0).map(c => `${c.n}/${c.food.toFixed(0)}/b${c.brood.length}p${c.pupaCount()}`).join(' '));
+      }
+    }
+    lines.push('EVENTS:\n' + sim.events.slice(-40).map(e => `${e.t} ${e.msg}`).join('\n'));
+  } catch (e) { err = e.stack || String(e); }
+  const ms = performance.now() - t0;
+  const body = JSON.stringify({ ms, ticks, err, lines });
+  document.getElementById('out').textContent = body;
+  const x = new XMLHttpRequest();
+  x.open('POST', '/result', false);
+  x.send(body);
+</script>
